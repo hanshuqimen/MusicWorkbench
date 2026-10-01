@@ -1,0 +1,4 @@
+[
+ {"id":"cuda-torch","file":"torch-2.7.1+cu128-cp311-cp311-win_amd64.whl","url":"https://download-r2.pytorch.org/whl/cu128/torch-2.7.1%2Bcu128-cp311-cp311-win_amd64.whl","size":3273066072,"sha256":"138c66dcd0ed2f07aafba3ed8b7958e2bed893694990e0b4b55b6b2b4a336aa6","license":"BSD-3-Clause"},
+ {"id":"cuda-audio","file":"torchaudio-2.7.1+cu128-cp311-cp311-win_amd64.whl","url":"https://download-r2.pytorch.org/whl/cu128/torchaudio-2.7.1%2Bcu128-cp311-cp311-win_amd64.whl","size":4660477,"sha256":"37a42de8c0f601dc0bc7dcccc4049644ef5adcf45920dd5813c339121e5b5a8c","license":"BSD-2-Clause"}
+]

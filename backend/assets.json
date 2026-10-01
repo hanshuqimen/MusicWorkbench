@@ -1,0 +1,34 @@
+[
+  {
+    "id": "generaluser",
+    "file": "GeneralUser-GS.sf2",
+    "url": "https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/main/GeneralUser-GS.sf2",
+    "sha256": "9575028c7a1f589f5770fccc8cff2734566af40cd26ed836944e9a5152688cfe",
+    "size": 32319396,
+    "license": "GeneralUser GS license"
+  },
+  {
+    "id": "basicpitch",
+    "file": "basic-pitch.onnx",
+    "url": "https://raw.githubusercontent.com/spotify/basic-pitch/main/basic_pitch/saved_models/icassp_2022/nmp.onnx",
+    "sha256": "2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec",
+    "size": 230444,
+    "license": "Apache-2.0"
+  },
+  {
+    "id": "demucs6",
+    "file": "5c90dfd2-34c22ccb.th",
+    "url": "https://dl.fbaipublicfiles.com/demucs/hybrid_transformer/5c90dfd2-34c22ccb.th",
+    "sha256": "34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd",
+    "size": 54996327,
+    "license": "MIT"
+  },
+  {
+    "id": "demucs4",
+    "file": "955717e8-8726e21a.th",
+    "url": "https://dl.fbaipublicfiles.com/demucs/hybrid_transformer/955717e8-8726e21a.th",
+    "sha256": "8726e21a993978c7ba086d3872e7608d7d5bfca646ca4aca459ffda844faa8b4",
+    "size": 84141911,
+    "license": "MIT"
+  }
+]

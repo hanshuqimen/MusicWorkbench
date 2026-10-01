@@ -1,0 +1,127 @@
+{
+  "name": "music-workbench",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/copy-worklet.mjs && node node_modules/typescript/bin/tsc --noEmit && node node_modules/vite/bin/vite.js build && node scripts/copy-worklet.mjs",
+    "test": "node node_modules/vitest/vitest.mjs run",
+    "start": "node scripts/start.mjs",
+    "package": "node scripts/package.mjs",
+    "test:backend": ".venv/Scripts/python.exe -m pytest backend/tests -q"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "spessasynth_core": "4.3.22",
+    "spessasynth_lib": "4.3.14"
+  },
+  "devDependencies": {
+    "@playwright/cli": "^0.1.22",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^41.0.0",
+    "electron-builder": "^26.0.0",
+    "esbuild": "0.28.2",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0",
+    "vitest": "^3.2.0"
+  },
+  "build": {
+    "appId": "local.musicworkbench.app",
+    "productName": "MusicWorkbench",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "desktop/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": [
+          "**/*.py",
+          "*.json",
+          "!tests/**",
+          "!**/__pycache__/**"
+        ]
+      },
+      {
+        "from": ".runtime/cpython-3.11.15-windows-x86_64-none",
+        "to": "python/cpython-3.11",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/test/**",
+          "!**/tests/**",
+          "!include/**",
+          "!libs/**",
+          "!vcruntime*.dll"
+        ]
+      },
+      {
+        "from": ".package-site",
+        "to": "python/site-packages",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/*.lib",
+          "!**/*.pdb"
+        ]
+      },
+      {
+        "from": "vendor",
+        "to": "vendor",
+        "filter": [
+          "ffmpeg.exe",
+          "GeneralUser-GS.sf2",
+          "licenses/**"
+        ]
+      },
+      {
+        "from": "THIRD_PARTY.md",
+        "to": "THIRD_PARTY.md"
+      },
+      {
+        "from": "vendor/vcruntime",
+        "to": "python/cpython-3.11",
+        "filter": [
+          "*.dll"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "desktop/icon.ico",
+      "signExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "installerLanguages": [
+        "zh_CN",
+        "en_US"
+      ]
+    },
+    "compression": "normal"
+  },
+  "description": "本地音乐改编与创作工作台",
+  "author": "MusicWorkbench"
+}

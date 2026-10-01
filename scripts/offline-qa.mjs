@@ -1,0 +1,30 @@
+import {createRequire} from 'node:module';
+import {mkdir,writeFile,stat} from 'node:fs/promises';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+const require=createRequire(import.meta.url),{_electron}=createRequire(require.resolve('@playwright/cli/package.json'))('playwright');
+const root=process.cwd(),out=path.join(root,'output/offline-qa'),home=path.join(out,'userdata-'+Date.now());await mkdir(home,{recursive:true});
+const executablePath=process.env.WORKBENCH_QA_EXE||path.join(root,'release/win-unpacked/MusicWorkbench.exe');
+const env={...process.env,PATH:path.join(process.env.SystemRoot,'System32'),WORKBENCH_TEST:'1',WORKBENCH_HOME:home,WORKBENCH_DISABLE_GPU_DOWNLOAD:'1',HTTPS_PROXY:'http://127.0.0.1:9',HTTP_PROXY:'http://127.0.0.1:9',NO_PROXY:'127.0.0.1,localhost'};
+const report={executablePath,network:'HTTP/HTTPS resource downloads blocked by a closed local proxy; local IPC remains available',checks:[]};
+const check=name=>{report.checks.push(name);console.log('PASS',name)};
+let app=await _electron.launch({executablePath,cwd:root,env});let page=await app.firstWindow();
+try{
+ await page.waitForFunction(()=>document.querySelector('.job-panel strong')?.textContent==='处理失败',{},{timeout:60000});
+ const health=await page.evaluate(()=>window.workbench.api('/health'));assert(health.assets.find(a=>a.id==='generaluser').ready);check('bundled sampler ready before model downloads');
+ await page.keyboard.down('a');await page.waitForTimeout(300);await page.keyboard.up('a');check('free playing available after download failure');
+ await app.evaluate(({dialog},file)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]})},path.join(root,'release/MusicWorkbench-resources.zip'));
+ await page.getByRole('button',{name:'设置与资源',exact:true}).click();await page.getByRole('button',{name:'导入离线资源包',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelectorAll('.asset-row svg').length===4,{},{timeout:60000});check('checksum-verified offline resource ZIP import');
+ await page.getByRole('button',{name:'校验／下载资源',exact:true}).click();
+ await page.waitForFunction(()=>!document.querySelector('.job-panel .spin')&&document.querySelector('.job-panel strong')?.textContent==='处理完成',{},{timeout:60000});
+ await page.waitForFunction(()=>document.querySelector('.settings-modal .hint')?.textContent?.includes('自检通过'),{},{timeout:60000});check('actual CPU model selftest without resource network access');
+ await page.getByRole('button',{name:'重新启动后端',exact:true}).click();
+ await page.waitForTimeout(1500);assert.equal((await page.evaluate(()=>window.workbench.api('/health'))).status,'ok');check('one-click backend restart');
+ await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file})},path.join(out,'诊断日志.zip'));
+ await page.getByRole('button',{name:'导出诊断日志',exact:true}).click();await page.waitForTimeout(500);assert((await stat(path.join(out,'诊断日志.zip'))).size>1000);check('diagnostic log export');
+ await app.close();app=await _electron.launch({executablePath,cwd:root,env});page=await app.firstWindow();
+ await page.waitForFunction(()=>document.querySelector('.job-panel strong')?.textContent==='处理完成',{},{timeout:60000});
+ assert((await page.evaluate(()=>window.workbench.api('/health'))).assets.every(a=>a.ready));check('offline restart and automatic backend startup');
+ report.finished=new Date().toISOString();
+}catch(error){report.failure=String(error);throw error}finally{await writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2));await app.close()}
