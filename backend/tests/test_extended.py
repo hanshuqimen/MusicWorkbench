@@ -17,6 +17,7 @@ def test_new_styles_change_arrangement_not_only_program():
     assert len(set(results))==6
 
 def test_extended_instrument_and_unselected_stems_survive_worker():
+    assert all(len(p.programs)==16 and 0<=p.programs["violin"]<=127 for p in PRESETS)
     violin=Track(name="小提琴",instrument="violin",notes=[NoteEvent(pitch=60,start=.2,duration=1,velocity=85)])
     original=Track(name="原声",instrument="vocals",mode="audio",asset="audio/vocals.wav")
     project=Project(duration=4,tracks=[violin,original],leadTrackId=violin.id)

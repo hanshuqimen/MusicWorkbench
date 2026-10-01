@@ -19,6 +19,7 @@ async function saved(){await page.waitForTimeout(850);return project()}
 async function completed(fresh=true){if(fresh)await page.locator('.job-panel .spin').waitFor({state:'visible',timeout:15000});await page.waitForFunction(()=>!document.querySelector('.job-panel .spin')&&document.querySelector('.job-panel strong')?.textContent==='处理完成',{},{timeout:180000});await page.waitForTimeout(850);assert.equal(await page.locator('.error-banner').count(),0)}
 try{
  await page.getByRole('button',{name:'开始录制',exact:true}).waitFor({timeout:60000});await completed(false);
+ const presets=await page.evaluate(()=>window.workbench.api('/presets'));assert(presets.every(p=>Object.keys(p.programs).length===16));
  await page.getByRole('button',{name:'用户指引',exact:true}).click();const guide=page.getByRole('dialog',{name:'用户指引'});
  await guide.getByRole('textbox',{name:'搜索指引'}).fill('指令');await guide.getByRole('button',{name:'指令自动弹奏',exact:true}).click();assert.match(await guide.innerText(),/ASDFDGS/);
  await page.keyboard.press('Escape');await guide.waitFor({state:'hidden'});check('searchable user guide and Escape dismissal');
@@ -64,5 +65,8 @@ try{
   const canceled=await page.evaluate(()=>window.workbench.uninstall());assert.equal(canceled.started,false);check('native uninstall confirmation safely cancels');
  }
  const image=await app.evaluate(async({BrowserWindow})=>Array.from((await BrowserWindow.getAllWindows()[0].capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG()));await writeFile(path.join(out,'workbench.png'),Buffer.from(image));
+ await app.evaluate(({dialog},file)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]})},path.join(root,'output/fixtures/reference-mix.wav'));
+ await page.getByRole('button',{name:'导入音乐',exact:false}).click();await page.waitForFunction(()=>document.querySelector('.track-caption')?.textContent?.includes('其他'));
+ await command.focus();await page.keyboard.down('Shift');await page.keyboard.press('a');await page.keyboard.up('Shift');p=await saved();assert.equal(p.tracks.length,1);assert.equal(p.tracks[0].instrument,'other');check('uppercase typing in command field never triggers sustain or creates a practice track');
  assert.deepEqual(errors,[]);check('renderer console clean');report.errors=errors;report.finished=new Date().toISOString();
 }catch(error){report.failure=String(error);throw error}finally{await writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2));await app.close()}

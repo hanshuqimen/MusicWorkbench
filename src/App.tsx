@@ -23,6 +23,7 @@ export default function App(){
  const [guide,setGuide]=useState(false),[tour,setTour]=useState<number|null>(null),[welcome,setWelcome]=useState(()=>localStorage.getItem('workbench-guide-seen')!=='1');
  const [sequencePlaying,setSequencePlaying]=useState(false),[sequencePosition,setSequencePosition]=useState(0),[uninstalling,setUninstalling]=useState(false);
  const sequenceRun=useRef<{trackId:string;sequence:Sequence;loop:boolean}|null>(null),sequenceToken=useRef(0);
+ const sustainKey=useRef(false);
  const [execution,setExecution]=useState<'auto'|'cpu'>(()=>localStorage.getItem('workbench-device')==='cpu'?'cpu':'auto');
  const [instrument,setInstrument]=useState<Instrument>('piano'),[octave,setOctave]=useState(4),[velocity,setVelocity]=useState(90),[sustain,setSustain]=useState(false),[held,setHeld]=useState(new Set<number>());
  const [frets,setFrets]=useState([0,2,2,0,0,0]),[playing,setPlaying]=useState(false),[position,setPosition]=useState(0),[loop,setLoop]=useState(false),[metronome,setMetronome]=useState(false);
@@ -102,7 +103,7 @@ export default function App(){
  function stopSequence(){sequenceToken.current++;if(sequenceRun.current){sequenceRun.current=null;engine.stop();setHeld(new Set())}setSequencePlaying(false);setSequencePosition(0)}
  function releaseAll(){
   for(const entry of pressed.current.values())finishPress(entry);
-  pressed.current.clear();keyMap.current.clear();setHeld(new Set());engine.panic();setSustain(false);
+  pressed.current.clear();keyMap.current.clear();sustainKey.current=false;setHeld(new Set());engine.panic();setSustain(false);
  }
  function finishPress(entry:Press){
   engine.noteOff(entry.trackId,entry.pitch);
@@ -169,11 +170,11 @@ export default function App(){
    if(e.repeat||e.ctrlKey||e.altKey||e.metaKey)return;
    if(e.code==='Space'){e.preventDefault();engine.playing?pause():void play();return;}
    if(sequenceRun.current)return;
-   if(e.key==='Shift'&&isKeyboardInstrument(instrument)){toggleSustain(true);return}
+   if(e.key==='Shift'&&isKeyboardInstrument(instrument)){sustainKey.current=true;toggleSustain(true);return}
    const mapped=keyPitch(e.key,instrument,octave,frets);
    if(mapped){e.preventDefault();keyMap.current.set(e.code,mapped.pitch);void noteOn(mapped.pitch,mapped.string);}
   };
-  const up=(e:KeyboardEvent)=>{if(e.key==='Shift'&&isKeyboardInstrument(instrument))toggleSustain(false);const pitch=keyMap.current.get(e.code);if(pitch!==undefined){noteOff(pitch);keyMap.current.delete(e.code)}};
+  const up=(e:KeyboardEvent)=>{if(e.key==='Shift'&&sustainKey.current){sustainKey.current=false;toggleSustain(false)}const pitch=keyMap.current.get(e.code);if(pitch!==undefined){noteOff(pitch);keyMap.current.delete(e.code)}};
   const blur=()=>{stopSequence();if(record.current)stopRecording();else releaseAll()};
   window.addEventListener('keydown',down);window.addEventListener('keyup',up);window.addEventListener('blur',blur);
   return()=>{window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('blur',blur)};

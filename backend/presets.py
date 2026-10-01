@@ -21,3 +21,10 @@ PRESETS = [
  StylePreset(id="ambient",name="氛围器乐",description="长音铺底 · 稀疏织体 · 开放五度",programs={"piano":89,"guitar":46,"bass":43,"drums":0},
  timbres={"piano":"暖音垫 · GM Warm Pad","guitar":"竖琴 · GM Orchestral Harp","bass":"低音弦乐 · GM Contrabass","drums":"稀疏镲片 · GM Standard"},ornament=.15,density=.2,swing=0),
 ]
+
+# Expose an explicit editable mapping for every new playable instrument.
+# The defaults follow arrangement roles; editing one instrument stays independent.
+for preset in PRESETS:
+    for instrument,role in {"electricPiano":"piano","organ":"piano","violin":"piano","cello":"bass","flute":"piano","sax":"piano","trumpet":"piano","accordion":"piano","harp":"guitar","koto":"guitar","shamisen":"guitar","bagpipe":"piano"}.items():
+        preset.programs[instrument]=preset.programs[role]
+        preset.timbres[instrument]=preset.timbres[role]

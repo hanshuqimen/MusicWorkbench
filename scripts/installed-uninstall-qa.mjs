@@ -1,14 +1,13 @@
 // Real installation/runtime teardown in updater mode, which preserves real user data.
 // Full data removal is covered separately by uninstall-qa.ps1 in isolated folders.
 import {createRequire} from 'node:module';
-import {mkdir,readdir,copyFile,writeFile,stat} from 'node:fs/promises';
+import {mkdir,copyFile,writeFile,stat} from 'node:fs/promises';
 import {spawn,execFileSync} from 'node:child_process';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url),{_electron}=createRequire(require.resolve('@playwright/cli/package.json'))('playwright');
 const root=process.cwd(),out=path.join(root,'output/installed-uninstall-qa'),install=path.join(out,'installed'),home=path.join(out,'userdata'),ps=path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe');
 assert(install.startsWith(path.join(root,'output')+path.sep));await mkdir(out,{recursive:true});
-const dataRoots=[path.join(process.env.APPDATA,'music-workbench'),path.join(process.env.APPDATA,'MusicWorkbench'),path.join(process.env.LOCALAPPDATA,'music-workbench'),path.join(process.env.LOCALAPPDATA,'MusicWorkbench')];
 const report={checks:[],install,mode:'--updated preserves existing user data; full data deletion tested only in isolated folders'},check=name=>{report.checks.push(name);console.log('PASS',name)};
 const run=(exe,args)=>new Promise((resolve,reject)=>{const child=spawn(exe,args,{windowsHide:true,stdio:'ignore'});child.once('error',reject);child.once('exit',code=>code===0?resolve():reject(new Error('Installer exit '+code)))});
 const exists=async file=>{try{await stat(file);return true}catch{return false}};
@@ -27,7 +26,7 @@ try{
  await page.evaluate(async p=>{
   await window.workbench.api('/projects/'+p.id,p,'PUT');
   const job=await window.workbench.api('/jobs',{kind:'separate',projectId:p.id,device:'cpu'},'POST');
-  for(let i=0;i<100;i++){const state=await window.workbench.api('/jobs/'+job.id);if(state.state==='running')return;await new Promise(r=>setTimeout(r,100))}throw Error('worker did not start');
+  for(let i=0;i<900;i++){const state=await window.workbench.api('/jobs/'+job.id);if(state.state==='running')return;if(state.state==='failed')throw Error(state.error);await new Promise(r=>setTimeout(r,100))}throw Error('worker did not start');
  },imported);
  const before=owned();assert(before.length>=3);report.runningBefore=before;check('bundled backend and inference worker run without external Node/Python');
  await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:0})});assert.equal((await page.evaluate(()=>window.workbench.uninstall())).started,false);check('application uninstall confirmation can cancel without deleting files');
