@@ -52,4 +52,4 @@ node scripts/render-fixture.mjs
 - **应用内用户指引**：右上角“使用指引”，包含搜索、操作步骤及九步真实界面高亮；首次打开提供入口提示。
 - **完全卸载**：设置中的“完全卸载应用”、Windows 应用列表或安装目录卸载器均可卸载安装版。独立版可从设置启动便携清理。先关闭所属进程，再清除应用管理的模型、CUDA 组件、音源、依赖、日志、缓存、设置与恢复工程；安装版同时移除快捷方式及注册信息。更新安装保留用户数据。用户另存的工程、导出作品、下载的安装包以及源码目录属于独立文件，需自行管理。
 
-源码托管于 [hanshuqimen/MusicWorkbench](https://github.com/hanshuqimen/MusicWorkbench)，默认私有仓库。模型、开发环境、测试输入／输出和大型安装包不进入 Git 历史；安装包通过 GitHub Releases 分发。
+源码托管于公开仓库 [hanshuqimen/MusicWorkbench](https://github.com/hanshuqimen/MusicWorkbench)。模型、开发环境、测试输入／输出和大型安装包不进入 Git 历史；安装包通过 GitHub Releases 分发。
