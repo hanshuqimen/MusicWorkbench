@@ -71,6 +71,21 @@ export class AudioEngine {
   this.buffers.set(key,decoded);return decoded;
  }
  clearCache(){this.buffers.clear();}
+ playNotes(trackId:string,notes:NoteEvent[],duration:number){
+  const channel=this.channel(trackId);if(channel<0||!this.context)throw new Error('当前乐器未就绪');
+  this.stop();this.offset=0;this.origin=this.now()+.08;this.cursor=0;this.playing=true;
+  this.events=notes.flatMap(n=>[
+   {type:'on' as const,channel,pitch:n.pitch,velocity:n.velocity,time:this.origin+n.start,transport:true},
+   {type:'off' as const,channel,pitch:n.pitch,time:this.origin+n.start+n.duration,transport:true}
+  ]).sort((a,b)=>a.time-b.time||(a.type==='off'?-1:1));
+  const tick=()=>{
+   if(!this.playing)return;
+   const events:ScheduledEvent[]=[];
+   while(this.events[this.cursor]?.time<this.now()+.15)events.push(this.events[this.cursor++]);
+   if(events.length)this.node?.port.postMessage({type:'events',events});
+   if(this.position()>=duration){this.stop();this.offset=duration;this.onEnded?.();}
+  };this.schedule=setInterval(tick,25);tick();
+ }
  async play(project:Project,offset=0,end=project.duration,original=false,lead=.08){
   await this.ensure(project.tracks);this.stop();
   this.offset=offset;this.origin=this.now()+lead-offset;

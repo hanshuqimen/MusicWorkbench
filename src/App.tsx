@@ -1,11 +1,15 @@
 import {useEffect,useRef,useState} from 'react';
-import {AudioLines,ArrowUpRight,Upload,FolderOpen,Save,Download,Settings2,Plus,Play,Pause,Square,RotateCcw,Undo2,Redo2,Check,LoaderCircle,X,RefreshCw,Headphones,Music2,Mic,Repeat2,Volume2,ChevronDown,ChevronRight,SlidersHorizontal,Trash2} from 'lucide-react';
+import {AudioLines,ArrowUpRight,Upload,FolderOpen,Save,Download,Settings2,Plus,Play,Pause,Square,RotateCcw,Undo2,Redo2,Check,LoaderCircle,X,RefreshCw,Headphones,Music2,Mic,Repeat2,Volume2,ChevronDown,ChevronRight,SlidersHorizontal,Trash2,BookOpen} from 'lucide-react';
 import type {Project,Track,Instrument,JobStatus,StylePreset,Health,Asset,NoteEvent,ControlEvent,Font} from './types';
-import {newTrack,labels,formatTime} from './types';
+import {newTrack,labels,formatTime,isKeyboardInstrument,playableInstruments} from './types';
 import {engine} from './audio/engine';
 import Timeline from './components/Timeline';
-import Instruments,{Icon,pianoKeys,drumKeys,drumPitches} from './components/Instruments';
+import Instruments,{Icon} from './components/Instruments';
 import EffectsPanel from './components/EffectsPanel';
+import SequencePanel from './components/SequencePanel';
+import UserGuide from './components/UserGuide';
+import {keyPitch} from './audio/keymap';
+import type {Sequence} from './audio/sequence';
 
 interface Press {trackId:string;pitch:number;start:number;velocity:number;string?:number}
 interface Recording {trackId:string;clock:number;offset:number;notes:NoteEvent[];controls:ControlEvent[]}
@@ -16,6 +20,9 @@ export default function App(){
  const [preset,setPreset]=useState<StylePreset|null>(null),[strength,setStrength]=useState(.5),[seed,setSeed]=useState(42);
  const [job,setJob]=useState<JobStatus|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [settings,setSettings]=useState(false),[device,setDevice]=useState('自动 GPU / CPU'),[model,setModel]=useState('htdemucs_6s');
+ const [guide,setGuide]=useState(false),[tour,setTour]=useState<number|null>(null),[welcome,setWelcome]=useState(()=>localStorage.getItem('workbench-guide-seen')!=='1');
+ const [sequencePlaying,setSequencePlaying]=useState(false),[sequencePosition,setSequencePosition]=useState(0),[uninstalling,setUninstalling]=useState(false);
+ const sequenceRun=useRef<{trackId:string;sequence:Sequence;loop:boolean}|null>(null),sequenceToken=useRef(0);
  const [execution,setExecution]=useState<'auto'|'cpu'>(()=>localStorage.getItem('workbench-device')==='cpu'?'cpu':'auto');
  const [instrument,setInstrument]=useState<Instrument>('piano'),[octave,setOctave]=useState(4),[velocity,setVelocity]=useState(90),[sustain,setSustain]=useState(false),[held,setHeld]=useState(new Set<number>());
  const [frets,setFrets]=useState([0,2,2,0,0,0]),[playing,setPlaying]=useState(false),[position,setPosition]=useState(0),[loop,setLoop]=useState(false),[metronome,setMetronome]=useState(false);
@@ -26,7 +33,11 @@ export default function App(){
  const busy=!!job&&['running','queued'].includes(job.state),assetsReady=health?.assets.find(a=>a.id==='generaluser')?.ready||false;
  const activeTrack=project?.tracks.find(t=>t.id===active),selected=project?.tracks.filter(t=>t.selected)||[];
  const fail=(e:unknown)=>setError(e instanceof Error?e.message:String(e));
- function assign(value:Project,reset=false){projectRef.current=value;setProject(value);if(reset){undo.current=[];redo.current=[];setHistoryRevision(r=>r+1);setPreview(null);setPosition(0);engine.stop();engine.clearCache();setPlaying(false);}}
+ function assign(value:Project,reset=false){
+  const run=sequenceRun.current,previous=projectRef.current;
+  if(run&&previous){const signature=(p:Project)=>p.tracks.map(t=>[t.id,t.soundBank,t.program,t.mode].join(':')).join('|');if(signature(value)!==signature(previous))stopSequence()}
+  projectRef.current=value;setProject(value);if(reset){stopSequence();undo.current=[];redo.current=[];setHistoryRevision(r=>r+1);setPreview(null);setPosition(0);engine.stop();engine.clearCache();setPlaying(false);}
+ }
  function change(fn:(p:Project)=>Project,remember=false){
   const p=projectRef.current;if(!p)return;
   if(remember){undo.current=[...undo.current.slice(-24),p];redo.current=[];setHistoryRevision(r=>r+1);}
@@ -85,9 +96,10 @@ export default function App(){
  },[job?.id,job?.state]);
  useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),6000);return()=>clearTimeout(timer)},[notice]);
  useEffect(()=>{
-  const timer=setInterval(()=>{if(engine.playing)setPosition(engine.position());},40);return()=>clearInterval(timer);
+  const timer=setInterval(()=>{if(engine.playing){if(sequenceRun.current){const pos=engine.position();setSequencePosition(pos);setHeld(new Set(sequenceRun.current.sequence.notes.filter(n=>n.start<=pos&&n.start+n.duration>pos).map(n=>n.pitch)))}else setPosition(engine.position());}},40);return()=>clearInterval(timer);
  },[]);
- useEffect(()=>{engine.onEnded=()=>{setPlaying(false);if(record.current)stopRecording();else if(loop&&projectRef.current)void playProject(projectRef.current,0)}},[loop]);
+ useEffect(()=>{engine.onEnded=()=>{const run=sequenceRun.current;if(run){if(run.loop){setSequencePosition(0);engine.playNotes(run.trackId,run.sequence.notes,run.sequence.duration)}else{sequenceRun.current=null;setSequencePlaying(false);setHeld(new Set());setNotice('指令演奏完成；可写入音轨继续编辑。')}return}setPlaying(false);if(record.current)stopRecording();else if(loop&&projectRef.current)void playProject(projectRef.current,0)}},[loop]);
+ function stopSequence(){sequenceToken.current++;if(sequenceRun.current){sequenceRun.current=null;engine.stop();setHeld(new Set())}setSequencePlaying(false);setSequencePosition(0)}
  function releaseAll(){
   for(const entry of pressed.current.values())finishPress(entry);
   pressed.current.clear();keyMap.current.clear();setHeld(new Set());engine.panic();setSustain(false);
@@ -108,9 +120,9 @@ export default function App(){
   if(rec)change(p=>({...p,duration:Math.min(600,Math.max(p.duration,...rec.notes.map(n=>n.start+n.duration))),
    tracks:p.tracks.map(t=>t.id===rec.trackId?{...t,notes:[...t.notes,...rec.notes],sourceNotes:[],controls:[...t.controls,...rec.controls]}:t)}),true);
  }
- function stop(){stopRecording();engine.stop();setPlaying(false);setPosition(0)}
+ function stop(){stopSequence();stopRecording();engine.stop();setPlaying(false);setPosition(0)}
  function chooseInstrument(value:Instrument){
-  releaseAll();if(record.current)stopRecording();setInstrument(value);
+  stopSequence();releaseAll();if(record.current)stopRecording();setInstrument(value);
   if(value==='guitar')setFrets([0,2,2,0,0,0]);if(value==='bass')setFrets([0,0,2,2]);
   const p=projectRef.current;if(!p)return;
   const existing=p.tracks.find(t=>t.mode==='notes'&&t.instrument===value&&!t.style&&!t.estimated);
@@ -153,33 +165,43 @@ export default function App(){
  }
  useEffect(()=>{
   const down=(e:KeyboardEvent)=>{
-   if((e.target as HTMLElement).closest('input,textarea,select,[contenteditable=true]'))return;
+   if((e.target as HTMLElement).closest('input,textarea,select,[contenteditable=true],[role=dialog]'))return;
    if(e.repeat||e.ctrlKey||e.altKey||e.metaKey)return;
    if(e.code==='Space'){e.preventDefault();engine.playing?pause():void play();return;}
-   if(e.key==='Shift'&&instrument==='piano'){toggleSustain(true);return}
-   let pitch:number|undefined,string:number|undefined;const key=e.key.toLowerCase();
-   if(instrument==='piano'){const i=pianoKeys.indexOf(key);if(i>=0)pitch=(octave+1)*12+i;}
-   else if(instrument==='drums'){const i=drumKeys.indexOf(key);if(i>=0)pitch=drumPitches[i];}
-   else{const keys=instrument==='bass'?['a','s','d','f']:['a','s','d','f','g','h'];const i=keys.indexOf(key);const strings=instrument==='bass'?[28,33,38,43]:[40,45,50,55,59,64];if(i>=0&&frets[i]>=0){pitch=strings[i]+frets[i];string=i;}}
-   if(pitch!==undefined){e.preventDefault();keyMap.current.set(e.code,pitch);void noteOn(pitch,string);}
+   if(sequenceRun.current)return;
+   if(e.key==='Shift'&&isKeyboardInstrument(instrument)){toggleSustain(true);return}
+   const mapped=keyPitch(e.key,instrument,octave,frets);
+   if(mapped){e.preventDefault();keyMap.current.set(e.code,mapped.pitch);void noteOn(mapped.pitch,mapped.string);}
   };
-  const up=(e:KeyboardEvent)=>{if(e.key==='Shift'&&instrument==='piano')toggleSustain(false);const pitch=keyMap.current.get(e.code);if(pitch!==undefined){noteOff(pitch);keyMap.current.delete(e.code)}};
-  const blur=()=>{if(record.current)stopRecording();else releaseAll()};
+  const up=(e:KeyboardEvent)=>{if(e.key==='Shift'&&isKeyboardInstrument(instrument))toggleSustain(false);const pitch=keyMap.current.get(e.code);if(pitch!==undefined){noteOff(pitch);keyMap.current.delete(e.code)}};
+  const blur=()=>{stopSequence();if(record.current)stopRecording();else releaseAll()};
   window.addEventListener('keydown',down);window.addEventListener('keyup',up);window.addEventListener('blur',blur);
   return()=>{window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('blur',blur)};
  },[instrument,octave,velocity,active,frets,assetsReady,project?.id]);
  async function playProject(p:Project,start=position,end=p.duration,original=false,lead=.08){
+  stopSequence();
   try{await engine.play(p,Math.min(start,Math.max(0,end-.01)),end,original,lead);setPlaying(true);
    if(metronome){const origin=engine.transportClock(start);engine.metronome(p.bpm,origin,Math.ceil((end-start)*p.bpm/60));}
    return true;
   }catch(e){engine.stop();fail(e);setPlaying(false);return false}
  }
  async function play(){if(!project)return;await playProject(project,position>=project.duration?0:position);}
- function pause(){if(record.current)stopRecording();engine.stop();setPosition(engine.position());setPlaying(false)}
+ function pause(){if(sequenceRun.current){stopSequence();return}if(record.current)stopRecording();engine.stop();setPosition(engine.position());setPlaying(false)}
+ async function playSequence(sequence:Sequence,repeat:boolean){
+  try{stop();const current=sequenceToken.current,track=practiceTrack();if(!track)return;await engine.ensure(projectRef.current!.tracks);if(current!==sequenceToken.current)return;
+   sequenceRun.current={trackId:track.id,sequence,loop:repeat};engine.playNotes(track.id,sequence.notes,sequence.duration);setSequencePlaying(true);setMode('create');
+  }catch(e){stopSequence();fail(e)}
+ }
+ function insertSequence(sequence:Sequence){
+  try{if(recording||count)throw new Error('请先结束录制再写入指令。');const offset=position,track=practiceTrack();if(!track)return;
+   if(offset+sequence.duration>600)throw new Error('当前光标与指令长度合计超过 10 分钟，请移回起点。');
+   change(p=>({...p,duration:Math.max(p.duration,offset+sequence.duration),tracks:p.tracks.map(t=>t.id===track.id?{...t,notes:[...t.notes,...sequence.notes.map(n=>({...n,id:crypto.randomUUID(),start:n.start+offset}))],sourceNotes:[]}:t)}),true);setNotice('指令已写入当前音轨，可编辑、撤销或导出。');setMode('create');
+  }catch(e){fail(e)}
+ }
  async function beginRecord(){
   if(recording||count){stopRecording();return}
   try{
-   engine.stop();setPlaying(false);setMode('create');
+   stopSequence();engine.stop();setPlaying(false);setMode('create');
    const track=practiceTrack();if(!track)return;
    await engine.ensure(projectRef.current!.tracks);releaseAll();
    const bpm=projectRef.current!.bpm,beat=60/bpm;
@@ -197,9 +219,9 @@ export default function App(){
  async function runJob(kind:'separate'|'transcribe'|'arrange',isPreview=false){
   const p=projectRef.current;if(!p)return;
   try{
-   setError('');engine.stop();setPlaying(false);releaseAll();
-   const ids=p.tracks.filter(t=>t.selected&&['piano','guitar','bass','drums'].includes(t.instrument)).map(t=>t.id);
-   if(kind!=='separate'&&!ids.length)throw new Error('请在左侧勾选要处理的钢琴、吉他、贝斯或鼓音轨。');
+   setError('');stopSequence();engine.stop();setPlaying(false);releaseAll();
+   const ids=p.tracks.filter(t=>t.selected&&playableInstruments.includes(t.instrument)).map(t=>t.id);
+   if(kind!=='separate'&&!ids.length)throw new Error('请在左侧勾选要处理的乐器音轨。');
    await window.workbench.api('/projects/'+p.id,p,'PUT');
    const value=await window.workbench.api<JobStatus>('/jobs',{kind,projectId:p.id,trackIds:ids,model,device:execution,style:kind==='arrange'?preset:undefined,strength,seed,preview:isPreview,start:range.start,end:range.end},'POST');
    setJob(value);
@@ -223,7 +245,7 @@ export default function App(){
  }
  async function exportFile(format:'mid'|'wav'|'mp3',onlyActive=false){
   if(!project)return;
-  try{setExporting(true);setExportOpen(false);setExportProgress(0);
+  try{stopSequence();setExporting(true);setExportOpen(false);setExportProgress(0);
    const ids=onlyActive?[active]:undefined;
    if(format==='mid'){const result=await window.workbench.exportMidi(project,ids);if(result)setNotice('MIDI 已导出；原声轨与效果请使用音频或工程导出。');}
    else{
@@ -236,9 +258,9 @@ export default function App(){
  async function initialize(){try{setError('');setJob(await window.workbench.api<JobStatus>('/jobs',{kind:'initialize',device:execution},'POST'))}catch(e){fail(e)}}
  if(!window.workbench)return <div className="unavailable"><h1>请通过桌面启动器打开 MusicWorkbench</h1><p>本页面需要桌面程序管理本地音频服务。</p></div>;
  return <div className="app-shell" onDragOver={e=>{e.preventDefault()}} onDrop={e=>{e.preventDefault();if(!busy&&e.dataTransfer.files[0])void importAudio(e.dataTransfer.files[0])}}>
-  <header className="app-header"><div className="brand"><div className="brand-icon"><AudioLines size={25}/></div><div><strong>MusicWorkbench<span className="version">BETA 01</span></strong><span>本地音乐改编与创作工作台</span></div></div>
+  <header className="app-header"><div className="brand"><div className="brand-icon"><AudioLines size={25}/></div><div><strong>MusicWorkbench<span className="version">BETA 02</span></strong><span>本地音乐改编与创作工作台</span></div></div>
    <nav className="workspace-tabs"><button className={mode==='arrange'?'active':''} onClick={()=>setMode('arrange')}><SlidersHorizontal size={16}/>改编工作台</button><button className={mode==='create'?'active':''} onClick={()=>setMode('create')}><Music2 size={16}/>创作工作台</button></nav>
-   <div className="header-actions"><span className="local-badge"><i/>本机处理</span><button className="icon-button" title="设置与资源" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></div></header>
+   <div className="header-actions"><span className="local-badge"><i/>本机处理</span><button aria-label="用户指引" onClick={()=>{stop();setGuide(true);setWelcome(false);localStorage.setItem('workbench-guide-seen','1')}}><BookOpen size={17}/>使用指引</button><button className="icon-button" title="设置与资源" aria-label="设置与资源" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></div></header>
   <div className="project-bar"><div className="project-title"><span className="eyebrow">PROJECT</span><input aria-label="工程名称" value={project?.name||'正在初始化…'} disabled={!project} onChange={e=>change(p=>({...p,name:e.target.value||'未命名创作'}))}/><span className="save-dot" title="自动保存到本机"/></div>
    <div className="project-actions"><button disabled={busy||recording} onClick={()=>void newProject()}><Plus size={15}/>新建</button><button disabled={busy||recording} onClick={()=>void open()}><FolderOpen size={15}/>打开</button><button disabled={!project} onClick={()=>void save()}><Save size={15}/>保存工程</button><div className="export-container"><button className="primary" disabled={!project||exporting} onClick={()=>setExportOpen(!exportOpen)}><Download size={15}/>导出<ChevronDown size={13}/></button>{exportOpen&&<div className="export-menu">{(['wav','mp3','mid'] as const).map(f=><button key={f} onClick={()=>void exportFile(f)}>混音导出 · {f.toUpperCase()}</button>)}<hr/>{(['wav','mp3','mid'] as const).map(f=><button key={f} disabled={!activeTrack} onClick={()=>void exportFile(f,true)}>当前音轨 · {f.toUpperCase()}</button>)}</div>}</div></div></div>
   {error&&<div className="error-banner" role="alert"><span>{error}</span><button onClick={()=>setError('')} aria-label="关闭错误提示"><X size={16}/></button></div>}
@@ -248,7 +270,7 @@ export default function App(){
     <div className="sidebar-heading"><div><span className="eyebrow">YOUR SESSION</span><h2>音轨 <span>{project?.tracks.length||0}</span></h2></div><button className="icon-button" title="新增当前乐器音轨" disabled={!project||busy} onClick={()=>{if(projectRef.current!.tracks.length>=16){setError('首版最多支持 16 条音轨');return}const t=newTrack(instrument);change(p=>({...p,tracks:[...p.tracks,t]}),true);setActive(t.id);setMode('create')}}><Plus size={18}/></button></div>
     <button className="import-button" disabled={busy||recording} onClick={()=>void importAudio()}><Upload size={17}/><span>导入音乐<small>WAV · MP3 · FLAC · M4A</small></span><ArrowUpRight size={15}/></button>
     {project?.original&&<div className="separation"><div className="inline"><span>音轨分离</span><select aria-label="分离模式" value={model} onChange={e=>setModel(e.target.value)} disabled={busy}><option value="htdemucs_6s">六轨 · 含钢琴与吉他</option><option value="htdemucs">四轨兼容模式</option></select></div><button disabled={busy} onClick={()=>void runJob('separate')}><AudioLines size={16}/>{project.tracks.some(t=>t.estimated)?'重新分离':'分离音轨'}</button><p className="hint">模型估计类别，可能存在串音。四轨模式不能单选钢琴和吉他。</p></div>}
-    <div className="track-list">{project?.tracks.map((track,index)=><div className={'track-card'+(active===track.id?' active':'')} key={track.id} onClick={()=>{if(!recording){setActive(track.id);if(['piano','guitar','bass','drums'].includes(track.instrument))setInstrument(track.instrument)}}} style={{'--track-color':track.color} as React.CSSProperties}>
+    <div className="track-list">{project?.tracks.map((track,index)=><div className={'track-card'+(active===track.id?' active':'')} key={track.id} onClick={()=>{if(!recording){setActive(track.id);if(playableInstruments.includes(track.instrument))setInstrument(track.instrument)}}} style={{'--track-color':track.color} as React.CSSProperties}>
      <div className="track-top"><input type="checkbox" aria-label={'选择 '+track.name} checked={track.selected} onClick={e=>e.stopPropagation()} onChange={e=>updateTrack(track.id,{selected:e.target.checked})}/><span className="track-icon"><Icon instrument={track.instrument} size={17}/></span><input className="track-name" aria-label={'音轨 '+(index+1)+' 名称'} value={track.name} onChange={e=>updateTrack(track.id,{name:e.target.value})}/><small>{String(index+1).padStart(2,'0')}</small></div>
      <div className="track-caption"><span>{track.estimated?'模型估计 · ':''}{labels[track.instrument]} · {track.mode==='audio'?'原声音频':track.style?'已编配':track.notes.length+' 个音符'}</span><div className="track-toggles"><button className={track.solo?'active':''} aria-label={'独奏 '+track.name} onClick={e=>{e.stopPropagation();updateTrack(track.id,{solo:!track.solo})}}>S</button><button className={track.mute?'muted-on':''} aria-label={'静音 '+track.name} onClick={e=>{e.stopPropagation();updateTrack(track.id,{mute:!track.mute})}}>M</button></div></div>
      <div className="track-volume"><Volume2 size={12}/><input aria-label={track.name+' 音量'} type="range" min={0} max={2} step={.01} value={track.gain} onChange={e=>updateTrack(track.id,{gain:+e.target.value})}/><span>{track.gain===0?'−∞':(20*Math.log10(track.gain)).toFixed(1)} dB</span></div>
@@ -257,17 +279,19 @@ export default function App(){
     <div className="sidebar-bottom"><Headphones size={17}/><div><strong>声音留在你的电脑</strong><span>无上传 · 无云端处理 · 自动保存</span></div></div>
    </aside>
    <div className="center-workspace">
+    {welcome&&<section className="welcome-guide"><BookOpen size={21}/><div><strong>第一次使用？从这里认识工作台</strong><p>导入改编、自由演奏，或输入 ASDFDGS 自动弹奏。</p></div><button onClick={()=>{stop();setGuide(true);setWelcome(false);localStorage.setItem('workbench-guide-seen','1')}}>查看指引</button><button className="icon-button" aria-label="关闭首次使用提示" onClick={()=>{setWelcome(false);localStorage.setItem('workbench-guide-seen','1')}}><X size={15}/></button></section>}
     <section className="intro"><div><span className="eyebrow">{mode==='arrange'?'REIMAGINE YOUR MUSIC':'CAPTURE YOUR MOMENT'}</span><h1>{mode==='arrange'?'给熟悉的旋律，新的演奏方式。':'从一个音符，开始你的作品。'}</h1><p>{mode==='arrange'?'导入音乐，选中乐器，再让不同的编配语言带来新的听感。':'选择乐器自由演奏。开启录制，把每一次按键和拨弦留在时间线上。'}</p></div><div className="intro-mark"><AudioLines size={52}/></div></section>
     {project?<Timeline project={project} active={active} time={position} onSeek={t=>{pause();setPosition(t)}} onActive={setActive} onNotes={editNotes} onMode={m=>updateTrack(active,{mode:m},true)}/>:<div className="loading-panel"><LoaderCircle className="spin"/><p>正在启动本地工作台…</p><button onClick={()=>void boot()}><RefreshCw size={15}/>重试连接</button></div>}
-    <Instruments instrument={instrument} onInstrument={chooseInstrument} octave={octave} onOctave={value=>{releaseAll();setOctave(value)}} velocity={velocity} onVelocity={setVelocity} sustain={sustain} onSustain={toggleSustain} held={held} onOn={(p,s)=>void noteOn(p,s)} onOff={noteOff} onPluck={(p,s)=>void pluck(p,s)} ready={assetsReady&&!!project} frets={frets} onFrets={setFrets}/>
+    <Instruments instrument={instrument} onInstrument={chooseInstrument} octave={octave} onOctave={value=>{stopSequence();releaseAll();setOctave(value)}} velocity={velocity} onVelocity={setVelocity} sustain={sustain} onSustain={toggleSustain} held={held} onOn={(p,s)=>void noteOn(p,s)} onOff={noteOff} onPluck={(p,s)=>void pluck(p,s)} ready={assetsReady&&!!project&&!sequencePlaying} frets={frets} onFrets={value=>{stopSequence();setFrets(value)}}/>
+    <SequencePanel instrument={instrument} octave={octave} frets={frets} velocity={velocity} bpm={project?.bpm||120} ready={assetsReady&&!!project&&!recording&&!count&&!exporting} running={sequencePlaying} position={sequencePosition} onPlay={playSequence} onStop={stop} onInsert={insertSequence}/>
     {activeTrack&&<EffectsPanel track={activeTrack} onChange={effects=>updateTrack(active,{effects})}/>}
    </div>
    <aside className="right-sidebar">
-    <section className="style-panel panel"><div className="section-heading"><div><span className="eyebrow">ARRANGEMENT</span><h2>探索演奏风格</h2></div><span className="number-label">04</span></div>
-     <div className="style-cards">{presets.map((style,i)=><button key={style.id} className={'style-card style-'+style.id+(preset?.id===style.id?' active':'')} onClick={()=>{setPreset(style);setPreview(null)}}><div className="style-art"><span>{['宫','和','风','舞'][i]}</span><div className="style-lines"/><small>0{i+1}</small></div><div className="style-label"><strong>{style.name}</strong><small>{['拨弦 · 留白 · 装饰音','筝 · 三味线 · 尺八','风笛 · 提琴 · 舞曲重音','手风琴 · 轮拨 · 起伏'][i]}</small></div>{preset?.id===style.id&&<span className="style-check"><Check size={12}/></span>}</button>)}</div>
+    <section className="style-panel panel"><div className="section-heading"><div><span className="eyebrow">ARRANGEMENT</span><h2>探索演奏风格</h2></div><span className="number-label">{String(presets.length).padStart(2,'0')}</span></div>
+     <div className="style-cards">{presets.map((style,i)=><button key={style.id} className={'style-card style-'+style.id+(preset?.id===style.id?' active':'')} onClick={()=>{setPreset(style);setPreview(null)}}><div className="style-art"><span>{['宫','和','风','舞','爵','蓝','摇','波','圆','境'][i]}</span><div className="style-lines"/><small>{String(i+1).padStart(2,'0')}</small></div><div className="style-label"><strong>{style.name}</strong><small>{style.description||'器乐风格编配'}</small></div>{preset?.id===style.id&&<span className="style-check"><Check size={12}/></span>}</button>)}</div>
      <div className="style-strength"><label>风格强度 <span>{Math.round(strength*100)}%</span></label><input aria-label="风格强度" type="range" min={0} max={1} step={.01} value={strength} onChange={e=>{setStrength(+e.target.value);setPreview(null)}}/><div className="range-labels"><span>轻微装饰</span><span>丰富编配</span></div></div>
      <div className="selected-summary"><span className="eyebrow">SELECTED TRACKS</span><p>{selected.length?selected.map(t=>t.name).join('、'):'在左侧勾选要改编的音轨'}</p></div>
-     <label className="field">主旋律轨<select value={project?.leadTrackId||''} disabled={!project||busy} onChange={e=>change(p=>({...p,leadTrackId:e.target.value||null}))}><option value="">自动推荐</option>{project?.tracks.filter(t=>t.instrument==='piano'||t.instrument==='guitar').map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+     <label className="field">主旋律轨<select value={project?.leadTrackId||''} disabled={!project||busy} onChange={e=>change(p=>({...p,leadTrackId:e.target.value||null}))}><option value="">自动推荐</option>{project?.tracks.filter(t=>playableInstruments.includes(t.instrument)&&!['bass','drums','cello'].includes(t.instrument)).map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
      <div className="preview-range"><label>预览起点<input aria-label="预览起点（秒）" type="number" min={0} max={project?.duration||600} value={range.start} step={1} onChange={e=>setRange(r=>({...r,start:+e.target.value}))}/></label><label>预览终点<input aria-label="预览终点（秒）" type="number" min={0} max={project?.duration||600} value={range.end} step={1} onChange={e=>setRange(r=>({...r,end:+e.target.value}))}/></label></div>
      <button className="wide" disabled={busy||!project||!selected.length} onClick={()=>void runJob('arrange',true)}><Headphones size={16}/>生成片段预览</button>
      {preview&&<button className="wide" onClick={()=>void playProject(preview,range.start,Math.min(range.end,preview.duration))}><Play size={15}/>试听预览</button>}
@@ -290,7 +314,8 @@ export default function App(){
   {settings&&<div className="modal-backdrop" onClick={()=>setSettings(false)}><section className="settings-modal panel" role="dialog" aria-modal="true" aria-label="设置与本地资源" onClick={e=>e.stopPropagation()}><div className="section-heading"><h2>设置与本地资源</h2><button className="icon-button" aria-label="关闭设置" onClick={()=>setSettings(false)}><X size={20}/></button></div><p className="muted">音频始终在本机处理。下载模型与音源后可离线使用。</p><label className="field">计算设备<select value={execution} onChange={e=>{const value=e.target.value as 'auto'|'cpu';setExecution(value);localStorage.setItem('workbench-device',value)}}><option value="auto">自动选择 GPU，失败时切换 CPU</option><option value="cpu">强制 CPU</option></select></label><p className="hint">{device}</p>
    <label className="field">工程时长（秒）<input type="number" min={1} max={600} value={project?+project.duration.toFixed(1):16} disabled={!project||!!project.original||playing||recording} onChange={e=>change(p=>({...p,duration:Math.max(1,Math.min(600,+e.target.value,...p.tracks.flatMap(t=>t.notes.map(n=>n.start+n.duration))))}))}/></label>
    <div className="asset-list">{health?.assets.map(a=><div className="asset-row" key={a.id}><span>{a.file}<small>{(a.size/1024/1024).toFixed(1)} MB · {a.license}</small></span>{a.ready?<Check size={16}/>:<span className="muted">待下载</span>}</div>)}</div>
-   <div className="settings-buttons"><button disabled={busy} onClick={()=>void initialize()}><Download size={16}/>校验／下载资源</button><button disabled={busy} onClick={()=>window.workbench.importPack().then(()=>refreshHealth()).catch(fail)}>导入离线资源包</button><button onClick={()=>window.workbench.importFont().then(font=>{if(font)setFonts(f=>[...f,font])}).catch(fail)}>导入 SF2 音源</button><button disabled={busy} onClick={()=>window.workbench.restart().then(()=>{setError('');return refreshHealth()}).catch(fail)}><RefreshCw size={16}/>重新启动后端</button><button onClick={()=>window.workbench.logs().then(result=>result&&setNotice('日志已导出：'+result.path)).catch(fail)}>导出诊断日志</button></div><p className="hint">导入的 SF2 使用主音色库（Bank 0）；乐器编号从 0 开始。音轨分类和转谱结果允许误差，请试听并修正。</p></section></div>}
+   <div className="settings-buttons"><button disabled={busy} onClick={()=>void initialize()}><Download size={16}/>校验／下载资源</button><button disabled={busy} onClick={()=>window.workbench.importPack().then(()=>refreshHealth()).catch(fail)}>导入离线资源包</button><button onClick={()=>window.workbench.importFont().then(font=>{if(font)setFonts(f=>[...f,font])}).catch(fail)}>导入 SF2 音源</button><button disabled={busy} onClick={()=>window.workbench.restart().then(()=>{setError('');return refreshHealth()}).catch(fail)}><RefreshCw size={16}/>重新启动后端</button><button onClick={()=>window.workbench.logs().then(result=>result&&setNotice('日志已导出：'+result.path)).catch(fail)}>导出诊断日志</button></div><p className="hint">导入的 SF2 使用主音色库（Bank 0）；乐器编号从 0 开始。音轨分类和转谱结果允许误差，请试听并修正。</p><div className="uninstall-section"><h3>应用管理</h3><p className="hint">完全卸载会清除运行环境、模型、GPU 组件、缓存和自动恢复工程。请先另存要保留的作品。</p><button className="danger" disabled={uninstalling||exporting||recording} onClick={async()=>{try{stop();setUninstalling(true);const result=await window.workbench.uninstall();if(!result.started)setUninstalling(false)}catch(e){setUninstalling(false);fail(e)}}}><Trash2 size={16}/>{uninstalling?'正在启动卸载…':'完全卸载应用'}</button></div></section></div>}
+  <UserGuide open={guide} onClose={()=>setGuide(false)} tour={tour} onTour={setTour}/>
   {exporting&&<div className="modal-backdrop"><section className="export-modal panel" role="dialog" aria-modal="true" aria-label="正在导出"><LoaderCircle className="spin" size={28}/><h2>{exportLabel||'正在导出'}</h2><progress max={1} value={exportProgress}/><p className="muted">使用与实时演奏一致的采样音源和效果参数。</p></section></div>}
  </div>
 }

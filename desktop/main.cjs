@@ -149,6 +149,27 @@ function installIPC(){
     return request('/files/logs',{path:r.filePath},'POST');
   });
   handle('restart',async()=>{killBackend();await new Promise(r=>setTimeout(r,1000));starting=undefined;await startBackend();return true;});
+  handle('uninstall',async()=>{
+    if(!app.isPackaged)throw new Error('源码开发模式不执行卸载。请使用安装版或独立程序中的卸载功能。');
+    const installPath=path.dirname(app.getPath('exe'));
+    const uninstaller=path.join(installPath,'Uninstall MusicWorkbench.exe');
+    const portable=!fs.existsSync(uninstaller);
+    const answer=await dialog.showMessageBox(window,{type:'warning',title:'完全卸载 MusicWorkbench',
+      message:'完全卸载应用并清除本地资源？',
+      detail:'将清除本应用的 Python、依赖、FFmpeg、音源、模型、GPU 组件、缓存、日志、设置和自动恢复工程。请先另存需要保留的作品。'+(portable?'\n独立程序目录也会删除。':'')+'\n自行另存的工程、导出作品和下载的安装包由你单独管理。',
+      buttons:['取消','完全卸载'],defaultId:0,cancelId:0,noLink:true});
+    if(answer.response!==1)return {started:false,portable};
+    let executable=uninstaller,args=[];
+    if(portable){
+      const script=path.join(app.getPath('temp'),'MusicWorkbench-Uninstall-'+randomUUID()+'.ps1');
+      await fsp.copyFile(path.join(root,'uninstall-cleanup.ps1'),script);
+      executable=path.join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0','powershell.exe');
+      args=['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script,'-InstallPath',installPath,'-Portable','-WaitPid',String(process.pid)];
+    }
+    const child=spawn(executable,args,{detached:true,windowsHide:portable,stdio:'ignore'});
+    await new Promise((resolve,reject)=>{child.once('spawn',resolve);child.once('error',reject)});child.unref();
+    setTimeout(()=>app.quit(),150);return {started:true,portable};
+  });
 }
 if(!app.requestSingleInstanceLock()) app.quit();
 else {

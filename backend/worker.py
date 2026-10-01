@@ -4,7 +4,7 @@ from .models import JobRequest, Project
 from .storage import atomic_json
 from .resources import initialize
 from .inference import separate, transcribe_track, analyze_audio, inference_selftest
-from .arrangement import arrange_track,estimate_chords
+from .arrangement import arrange_track,estimate_chords,arrangement_role
 from .config import project_root
 
 def emit(**data):
@@ -38,10 +38,10 @@ def execute(payload):
     if request.kind=="transcribe": return {"project":project.model_dump()}
     if not request.style: raise ValueError("请选择演奏风格")
     if request.end<=request.start: raise ValueError("预览结束位置必须晚于起点")
-    harmonic=[n for t in project.tracks if t.instrument in ("piano","guitar") for n in (t.sourceNotes or t.notes)]
+    harmonic=[n for t in project.tracks if arrangement_role(t.instrument) in ("piano","guitar") and t.instrument not in ("vocals","other") for n in (t.sourceNotes or t.notes)]
     project.chords=estimate_chords(harmonic,project.bpm,project.duration,project.key)
     if not project.leadTrackId:
-        candidates=[t for t in selected if t.instrument in ("piano","guitar")]
+        candidates=[t for t in selected if arrangement_role(t.instrument) in ("piano","guitar")]
         if candidates: project.leadTrackId=max(candidates,key=lambda t:np_mean([n.pitch for n in t.notes])).id
     for i,track in enumerate(project.tracks):
         if track.id in ids:

@@ -1,13 +1,12 @@
 import {useEffect,useRef,useState} from 'react';
 import {Piano,Guitar,Drum,Minus,Plus} from 'lucide-react';
 import type {Instrument} from '../types';
-import {labels} from '../types';
+import {labels,isKeyboardInstrument,playableInstruments} from '../types';
 import {pitchName} from './Timeline';
-export const pianoKeys=['a','w','s','e','d','f','t','g','y','h','u','j','k','o','l','p',';'];
-export const drumPitches=[36,38,42,46,41,45,49,51];
-export const drumKeys=['a','s','d','f','j','k','l',';'];
+import {pianoKeys,drumPitches,drumKeys} from '../audio/keymap';
+export {pianoKeys,drumPitches,drumKeys} from '../audio/keymap';
 const drumLabels=['底鼓','军鼓','闭镲','开镲','低嗵','高嗵','吊镲','叮叮镲'];
-export function Icon({instrument,size=19}:{instrument:Instrument;size?:number}){return instrument==='piano'?<Piano size={size}/>:instrument==='drums'?<Drum size={size}/>:<Guitar size={size}/>}
+export function Icon({instrument,size=19}:{instrument:Instrument;size?:number}){return isKeyboardInstrument(instrument)?<Piano size={size}/>:instrument==='drums'?<Drum size={size}/>:<Guitar size={size}/>}
 interface Props {instrument:Instrument;onInstrument:(instrument:Instrument)=>void;octave:number;onOctave:(n:number)=>void;velocity:number;onVelocity:(n:number)=>void;sustain:boolean;onSustain:(value:boolean)=>void;held:Set<number>;onOn:(pitch:number,string?:number)=>void;onOff:(pitch:number)=>void;onPluck:(pitch:number,string:number)=>void;ready:boolean;frets:number[];onFrets:(values:number[])=>void}
 export default function Instruments({instrument,onInstrument,octave,onOctave,velocity,onVelocity,sustain,onSustain,held,onOn,onOff,onPluck,ready,frets,onFrets}:Props){
  const chordSet=instrument==='bass'?[[0,0,2,2],[3,3,0,0],[5,5,2,2]]:[[0,2,2,0,0,0],[3,2,0,0,0,3],[-1,3,2,0,1,0]];
@@ -27,8 +26,9 @@ export default function Instruments({instrument,onInstrument,octave,onOctave,vel
  return <section className="instrument-panel panel">
   <div className="section-heading"><div><span className="eyebrow">PLAY AN IDEA</span><h2>让灵感先发声</h2></div><span className="badge">{ready?'采样音源已就绪':'等待音源初始化'}</span></div>
   <div className="instrument-controls"><div className="instrument-tabs">{(['piano','guitar','bass','drums'] as Instrument[]).map(i=><button key={i} className={i===instrument?'active':''} onClick={()=>onInstrument(i)}><Icon instrument={i}/>{labels[i]}</button>)}</div>
+   <label className="more-instruments">更多乐器<select aria-label="更多乐器" value={instrument} onChange={e=>onInstrument(e.target.value as Instrument)}>{playableInstruments.map(i=><option key={i} value={i}>{labels[i]}</option>)}</select></label>
    <label className="inline">力度 <input type="range" min={1} max={127} value={velocity} onChange={e=>onVelocity(+e.target.value)}/><span>{velocity}</span></label></div>
-  {instrument==='piano'?<>
+  {isKeyboardInstrument(instrument)?<>
    <div className="piano-controls"><div className="inline"><button className="icon-button" aria-label="降低八度" onClick={()=>onOctave(Math.max(1,octave-1))}><Minus size={14}/></button><span>C{octave} — E{octave+1}</span><button className="icon-button" aria-label="升高八度" onClick={()=>onOctave(Math.min(7,octave+1))}><Plus size={14}/></button></div><button className={sustain?'active':''} onClick={()=>onSustain(!sustain)}>延音 {sustain?'开':'关'} <kbd>Shift</kbd></button></div>
    <div className="piano-keyboard">{pianoKeys.map((key,index)=>{
     const pitch=(octave+1)*12+index,black=[1,3,6,8,10].includes(pitch%12);

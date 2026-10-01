@@ -10,3 +10,48 @@
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:#344354;border-radius:5px}::-webkit-scrollbar-track{background:transparent}
 @media(max-width:1250px){.workbench-grid{grid-template-columns:215px minmax(380px,1fr) 254px}.center-workspace{padding:20px 16px}.right-sidebar{padding:20px 12px}.app-header,.project-bar{padding-left:18px;padding-right:18px}.intro h1{font-size:20px}.intro-mark{display:none}.brand strong{font-size:16px}.workspace-tabs button{padding:8px 10px}.instrument-controls{flex-wrap:wrap}.transport{padding:0 14px}.transport-settings{gap:8px}.device-indicator{display:none}.time-display{font-size:15px;margin-left:3px}.transport-play{gap:4px}.track-sidebar{padding-left:12px;padding-right:12px}.style-label small{font-size:8px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.instrument-controls{flex-wrap:wrap}
+.more-instruments{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.more-instruments select{max-width:108px;padding:5px;font-size:11px}
+.sequence-body{padding:0 17px 17px}
+.sequence-body>label{display:block;font-size:12px;margin-bottom:7px}
+.sequence-body textarea{display:block;width:100%;resize:vertical;min-height:62px;max-height:160px;border:1px solid var(--border);border-radius:7px;background:#101923;color:#e9edf3;padding:10px 12px;font:16px Consolas,monospace;letter-spacing:2px;line-height:1.6}
+.sequence-body .hint{margin:9px 0;line-height:1.7}
+.sequence-controls{display:flex;gap:15px;flex-wrap:wrap;align-items:center;margin:13px 0;font-size:11px}
+.sequence-controls label{display:flex;gap:6px;align-items:center}
+.sequence-controls input[type=number]{width:62px}
+.sequence-controls select{font-size:11px}
+.sequence-preview{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.sequence-preview>span{background:#202e3c;border:1px solid #344354;border-radius:4px;padding:4px 6px;font:11px Consolas,monospace;color:#c0cede;min-width:22px;text-align:center}
+.sequence-preview>span.current{background:var(--accent);border-color:var(--accent);color:#12362f}
+.sequence-preview small{color:var(--muted);font-size:10px;margin-left:6px}
+.sequence-error{font-size:12px;line-height:1.6;color:#ffb2b2}
+.sequence-actions{display:flex;gap:8px;flex-wrap:wrap}
+.welcome-guide{display:flex;align-items:center;gap:12px;background:#1b3234;border:1px solid #3b6262;border-radius:9px;padding:14px;flex-shrink:0}
+.welcome-guide>svg{color:var(--accent);flex-shrink:0}
+.welcome-guide div{flex:1}.welcome-guide strong{font-size:13px}.welcome-guide p{font-size:11px;color:#b4c9ca;margin:5px 0 0}
+.guide-modal{width:min(820px,90vw);max-height:85vh;overflow:auto}
+.guide-modal .section-heading{padding:18px 22px}
+.guide-modal .guide-search{display:flex;align-items:center;gap:8px;margin:0 22px 16px;background:#111b26;border:1px solid var(--border);border-radius:7px;padding:6px 12px;color:var(--muted)}
+.guide-search input{border:0!important;background:transparent!important;width:100%}
+.guide-layout{display:grid;grid-template-columns:170px minmax(0,1fr);border-top:1px solid var(--border)}
+.guide-layout nav{padding:15px 10px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:4px;background:#141d28}
+.guide-layout nav button{justify-content:space-between;background:transparent;border-color:transparent;padding:11px 10px;font-size:12px}
+.guide-layout nav button.active{background:#23403d;color:#a9f0db;border-color:#40685e}
+.guide-layout article{padding:25px 25px 30px}.guide-layout h3{font-size:21px;margin:0 0 10px}
+.guide-layout article>p{font-size:13px;line-height:1.7}.guide-layout ol{padding-left:21px;margin:23px 0}
+.guide-layout li{font-size:13px;color:#d0d9e4;line-height:1.9;padding-left:5px;margin:12px 0}
+.guide-target{outline:3px solid var(--accent)!important;outline-offset:-3px;box-shadow:0 0 24px #72d7c232!important}
+.guide-tour{position:fixed;bottom:88px;right:24px;width:380px;padding:18px;z-index:30;border-color:#608d82;box-shadow:0 12px 45px #0008;background:#172c2d}
+.guide-tour .inline h3{flex:1;margin:0;font-size:15px}.guide-tour .icon-button{margin-left:auto}
+.guide-tour p{font-size:13px;line-height:1.8;color:#c3d5d3;margin:14px 0 20px}
+.guide-tour>.inline:last-child{justify-content:flex-end}
+.style-cards{max-height:325px;overflow-y:auto}
+.style-jazz .style-art,.style-blues .style-art{background:#26394d;color:#95bedb}
+.style-rock .style-art{background:#442b2d;color:#e8a69c}.style-bossa .style-art{background:#2a4036;color:#add0ae}
+.style-waltz .style-art{background:#3b3044;color:#cbb4df}.style-ambient .style-art{background:#293a44;color:#a4cad7}
+.style-label small{line-height:1.5}
+.uninstall-section{margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+.uninstall-section h3{font-size:14px;margin:0 0 10px}.danger{color:#ffc0be;border-color:#79514f;background:#432c2e}
+.settings-modal{max-height:85vh;overflow:auto}
+button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}

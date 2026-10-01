@@ -32,7 +32,7 @@ class Effects(Model):
     delay: float = Field(default=0, ge=0, le=1)
     reverb: float = Field(default=0, ge=0, le=1)
 
-Instrument = Literal["piano", "guitar", "bass", "drums", "vocals", "other"]
+Instrument = Literal["piano", "guitar", "bass", "drums", "electricPiano", "organ", "violin", "cello", "flute", "sax", "trumpet", "accordion", "harp", "koto", "shamisen", "bagpipe", "vocals", "other"]
 
 class Track(Model):
     id: str = Field(default_factory=uid)
@@ -85,8 +85,9 @@ class Project(Model):
         return self
 
 class StylePreset(Model):
-    id: Literal["chinese", "japanese", "scottish", "russian"]
+    id: Literal["chinese", "japanese", "scottish", "russian", "jazz", "blues", "rock", "bossa", "waltz", "ambient"]
     name: str
+    description: str = Field(default="", max_length=160)
     programs: dict[str, int]
     timbres: dict[str, str]
     ornament: float = Field(ge=0, le=1)

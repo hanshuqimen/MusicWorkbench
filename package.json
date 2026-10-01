@@ -1,6 +1,6 @@
 {
   "name": "music-workbench",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "main": "desktop/main.cjs",
@@ -91,6 +91,10 @@
         "to": "THIRD_PARTY.md"
       },
       {
+        "from": "desktop/uninstall-cleanup.ps1",
+        "to": "uninstall-cleanup.ps1"
+      },
+      {
         "from": "vendor/vcruntime",
         "to": "python/cpython-3.11",
         "filter": [
@@ -115,6 +119,8 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
+      "deleteAppDataOnUninstall": true,
+      "include": "desktop/installer.nsh",
       "installerLanguages": [
         "zh_CN",
         "en_US"

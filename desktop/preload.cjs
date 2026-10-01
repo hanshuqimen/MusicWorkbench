@@ -12,5 +12,6 @@ contextBridge.exposeInMainWorld('workbench',{
   importFont:()=>ipcRenderer.invoke('import-font'),
   logs:()=>ipcRenderer.invoke('logs'),
   restart:()=>ipcRenderer.invoke('restart'),
+  uninstall:()=>ipcRenderer.invoke('uninstall'),
   onBackendExit:fn=>{const listener=(_,code)=>fn(code);ipcRenderer.on('backend-exit',listener);return()=>ipcRenderer.removeListener('backend-exit',listener);}
 });
