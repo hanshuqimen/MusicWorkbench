@@ -34,6 +34,40 @@ class Effects(Model):
 
 Instrument = Literal["piano", "guitar", "bass", "drums", "electricPiano", "organ", "violin", "cello", "flute", "sax", "trumpet", "accordion", "harp", "koto", "shamisen", "bagpipe", "vocals", "other"]
 
+class PerformanceSettings(Model):
+    octave: int = Field(default=4, ge=1, le=7)
+    velocity: int = Field(default=90, ge=1, le=127)
+    frets: list[int] = Field(default_factory=lambda: [0,2,2,0,0,0], min_length=4, max_length=6)
+
+    @model_validator(mode="after")
+    def valid_frets(self):
+        if any(f < -1 or f > 7 for f in self.frets): raise ValueError("品位必须为 -1 至 7")
+        return self
+
+class SequenceInput(Model):
+    text: str = Field(default="", max_length=4000)
+    # Incomplete BPM edits are saved as drafts; note generation requires 20–300.
+    bpm: float = Field(default=120, ge=0, le=1000)
+    division: Literal[4,8,16] = 8
+    loop: bool = False
+    start: float = Field(default=0, ge=0, le=600)
+    noteIds: list[str] = Field(default_factory=list, max_length=34000)
+
+class StylePreset(Model):
+    id: Literal["chinese", "japanese", "scottish", "russian", "jazz", "blues", "rock", "bossa", "waltz", "ambient"]
+    name: str
+    description: str = Field(default="", max_length=160)
+    programs: dict[str, int]
+    timbres: dict[str, str]
+    ornament: float = Field(ge=0, le=1)
+    density: float = Field(ge=0, le=1)
+    swing: float = Field(ge=0, le=0.35)
+
+class ArrangementSettings(Model):
+    preset: StylePreset
+    strength: float = Field(default=0.5, ge=0, le=1)
+    seed: int = Field(default=42, ge=0, le=2147483647)
+
 class Track(Model):
     id: str = Field(default_factory=uid)
     name: str = Field(max_length=120)
@@ -56,6 +90,9 @@ class Track(Model):
     color: str = "#72d7c2"
     timbre: str = ""
     style: str | None = None
+    performance: PerformanceSettings | None = None
+    sequence: SequenceInput | None = None
+    arrangement: ArrangementSettings | None = None
 
 class TempoPoint(Model):
     time: float = Field(ge=0, le=601)
@@ -83,16 +120,6 @@ class Project(Model):
         if any(b.time<=a.time for a,b in zip(self.tempoMap,self.tempoMap[1:])): raise ValueError("节拍映射时间必须递增")
         if len({t.id for t in self.tracks})!=len(self.tracks): raise ValueError("音轨编号不能重复")
         return self
-
-class StylePreset(Model):
-    id: Literal["chinese", "japanese", "scottish", "russian", "jazz", "blues", "rock", "bossa", "waltz", "ambient"]
-    name: str
-    description: str = Field(default="", max_length=160)
-    programs: dict[str, int]
-    timbres: dict[str, str]
-    ornament: float = Field(ge=0, le=1)
-    density: float = Field(ge=0, le=1)
-    swing: float = Field(ge=0, le=0.35)
 
 class JobRequest(Model):
     kind: Literal["initialize", "separate", "transcribe", "arrange", "selftest"]

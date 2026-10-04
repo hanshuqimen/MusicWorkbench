@@ -47,7 +47,7 @@ class EncodeInput(FileInput):
 
 @app.get("/health")
 def health():
-    return {"status":"ok","version":"0.1.0","assets":status(),"recovery":(HOME/"recovery.json").exists()}
+    return {"status":"ok","version":"0.3.0","assets":status(),"recovery":(HOME/"recovery.json").exists()}
 
 @app.get("/presets")
 def presets(): return PRESETS

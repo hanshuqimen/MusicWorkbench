@@ -7,8 +7,8 @@ import {pianoKeys,drumPitches,drumKeys} from '../audio/keymap';
 export {pianoKeys,drumPitches,drumKeys} from '../audio/keymap';
 const drumLabels=['底鼓','军鼓','闭镲','开镲','低嗵','高嗵','吊镲','叮叮镲'];
 export function Icon({instrument,size=19}:{instrument:Instrument;size?:number}){return isKeyboardInstrument(instrument)?<Piano size={size}/>:instrument==='drums'?<Drum size={size}/>:<Guitar size={size}/>}
-interface Props {instrument:Instrument;onInstrument:(instrument:Instrument)=>void;octave:number;onOctave:(n:number)=>void;velocity:number;onVelocity:(n:number)=>void;sustain:boolean;onSustain:(value:boolean)=>void;held:Set<number>;onOn:(pitch:number,string?:number)=>void;onOff:(pitch:number)=>void;onPluck:(pitch:number,string:number)=>void;ready:boolean;frets:number[];onFrets:(values:number[])=>void}
-export default function Instruments({instrument,onInstrument,octave,onOctave,velocity,onVelocity,sustain,onSustain,held,onOn,onOff,onPluck,ready,frets,onFrets}:Props){
+interface Props {instrument:Instrument;onInstrument:(instrument:Instrument)=>void;octave:number;onOctave:(n:number)=>void;velocity:number;onVelocity:(n:number)=>void;sustain:boolean;onSustain:(value:boolean)=>void;held:Set<number>;onOn:(pitch:number,string?:number)=>void;onOff:(pitch:number)=>void;onPluck:(pitch:number,string:number)=>void;ready:boolean;frets:number[];onFrets:(values:number[])=>void;autoCapture:boolean;onAutoCapture:(value:boolean)=>void;creating:boolean}
+export default function Instruments({instrument,onInstrument,octave,onOctave,velocity,onVelocity,sustain,onSustain,held,onOn,onOff,onPluck,ready,frets,onFrets,autoCapture,onAutoCapture,creating}:Props){
  const chordSet=instrument==='bass'?[[0,0,2,2],[3,3,0,0],[5,5,2,2]]:[[0,2,2,0,0,0],[3,2,0,0,0,3],[-1,3,2,0,1,0]];
  const names=instrument==='bass'?['E','G','A']:['Em','G','C'];
  const strings=instrument==='bass'?[28,33,38,43]:[40,45,50,55,59,64];
@@ -43,6 +43,7 @@ export default function Instruments({instrument,onInstrument,octave,onOctave,vel
      {strings.map((open,i)=>{const pitch=open+Math.max(0,frets[i]);return <button key={i} aria-label={`拨动第 ${i+1} 弦`} disabled={!ready||frets[i]<0} className={held.has(pitch)?'pressed':''}><span className="string-line"/><kbd>{keys[i].toUpperCase()}</kbd></button>})}
     </div></div>
   </>}
-  <p className="hint instrument-hint">鼠标与电脑键盘均可演奏。切换乐器会释放音符；在创作模式中按下录制，即可留下可编辑的演奏。</p>
+  <div className="capture-controls"><label><input type="checkbox" aria-label="自动记录演奏" checked={autoCapture} onChange={e=>onAutoCapture(e.target.checked)}/>自动记录演奏</label><span>{creating&&autoCapture?'按键和拨弦自动显示在音轨上':'创作模式中开启后，演奏会自动留在音轨'}</span></div>
+  <p className="hint instrument-hint">鼠标与电脑键盘均可演奏。创作模式默认自动记录，无需先按录制；倒数录制仍可用于跟随其他音轨演奏。切换乐器会保留各轨的音符、风格与设置。</p>
  </section>
 }
